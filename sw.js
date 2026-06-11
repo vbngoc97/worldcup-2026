@@ -1,13 +1,13 @@
 const CACHE_NAME = 'wc2026-cache-v1';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/src/styles.css',
-  '/src/main.js',
-  '/src/services/dataService.js',
-  '/src/utils/time.js',
-  '/src/utils/standings.js',
-  '/src/data/worldcup-2026.json'
+  './',
+  './index.html',
+  './src/styles.css',
+  './src/main.js',
+  './src/services/dataService.js',
+  './src/utils/time.js',
+  './src/utils/standings.js',
+  './src/data/worldcup-2026.json'
 ];
 
 self.addEventListener('install', event => {
