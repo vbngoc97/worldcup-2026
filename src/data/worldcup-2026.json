@@ -1,0 +1,86 @@
+{
+  "competition": {
+    "id": 2000,
+    "name": "FIFA World Cup",
+    "code": "WC",
+    "type": "CUP",
+    "emblem": ""
+  },
+  "season": {
+    "id": 1375,
+    "startDate": "2026-06-11",
+    "endDate": "2026-07-19",
+    "currentMatchday": 1,
+    "winner": null
+  },
+  "matches": [
+    {
+      "id": 1,
+      "utcDate": "2026-06-11T19:00:00Z",
+      "status": "FINISHED",
+      "matchday": 1,
+      "stage": "GROUP_STAGE",
+      "group": "GROUP_A",
+      "homeTeam": { "id": 1, "name": "Mexico", "shortName": "MEX", "tla": "MEX", "crest": "https://crests.football-data.org/769.svg" },
+      "awayTeam": { "id": 2, "name": "South Korea", "shortName": "KOR", "tla": "KOR", "crest": "https://crests.football-data.org/773.svg" },
+      "score": {
+        "winner": "HOME_TEAM",
+        "duration": "REGULAR",
+        "fullTime": { "home": 2, "away": 0 },
+        "halfTime": { "home": 1, "away": 0 }
+      },
+      "venue": "Estadio Azteca, Mexico City"
+    },
+    {
+      "id": 2,
+      "utcDate": "2026-06-12T19:00:00Z",
+      "status": "SCHEDULED",
+      "matchday": 1,
+      "stage": "GROUP_STAGE",
+      "group": "GROUP_B",
+      "homeTeam": { "id": 3, "name": "Canada", "shortName": "CAN", "tla": "CAN", "crest": "https://crests.football-data.org/833.svg" },
+      "awayTeam": { "id": 4, "name": "Cameroon", "shortName": "CMR", "tla": "CMR", "crest": "https://crests.football-data.org/811.svg" },
+      "score": {
+        "winner": null,
+        "duration": "REGULAR",
+        "fullTime": { "home": null, "away": null },
+        "halfTime": { "home": null, "away": null }
+      },
+      "venue": "BMO Field, Toronto"
+    },
+    {
+      "id": 3,
+      "utcDate": "2026-06-12T22:00:00Z",
+      "status": "SCHEDULED",
+      "matchday": 1,
+      "stage": "GROUP_STAGE",
+      "group": "GROUP_A",
+      "homeTeam": { "id": 5, "name": "United States", "shortName": "USA", "tla": "USA", "crest": "https://crests.football-data.org/776.svg" },
+      "awayTeam": { "id": 6, "name": "Germany", "shortName": "GER", "tla": "GER", "crest": "https://crests.football-data.org/759.svg" },
+      "score": {
+        "winner": null,
+        "duration": "REGULAR",
+        "fullTime": { "home": null, "away": null },
+        "halfTime": { "home": null, "away": null }
+      },
+      "venue": "SoFi Stadium, Los Angeles"
+    },
+    {
+      "id": 4,
+      "utcDate": "2026-06-13T01:00:00Z",
+      "status": "SCHEDULED",
+      "matchday": 1,
+      "stage": "GROUP_STAGE",
+      "group": "GROUP_C",
+      "homeTeam": { "id": 7, "name": "Argentina", "shortName": "ARG", "tla": "ARG", "crest": "https://crests.football-data.org/762.svg" },
+      "awayTeam": { "id": 8, "name": "Spain", "shortName": "ESP", "tla": "ESP", "crest": "https://crests.football-data.org/760.svg" },
+      "score": {
+        "winner": null,
+        "duration": "REGULAR",
+        "fullTime": { "home": null, "away": null },
+        "halfTime": { "home": null, "away": null }
+      },
+      "venue": "MetLife Stadium, New Jersey"
+    }
+  ]
+}
