@@ -1,34 +1,33 @@
 /**
- * Time utilities for Vietnam timezone display
- * All times displayed in Asia/Ho_Chi_Minh (UTC+7)
+ * Time utilities – Vietnam timezone (UTC+7)
+ * Status detection relies on data from the dual-source DataService.
+ * No more client-side time-guessing.
  */
 
 const TZ = 'Asia/Ho_Chi_Minh';
-
-const DAYS_VI = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+const DAYS_VI = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
 
 /**
- * Parse the API's local_date string "MM/DD/YYYY HH:mm"
- * The API uses US-hosted servers; local_date appears to be US Central time (UTC-5).
- * We'll convert to Vietnam time (UTC+7), so add 12 hours.
+ * Parse API local_date string "MM/DD/YYYY HH:mm"
+ * worldcup26.ir stores dates in US Central (CDT = UTC-5).
+ * Adding 5h gives UTC; then +7h to display in Vietnam time.
  */
 export function parseMatchDate(localDateStr) {
   if (!localDateStr) return null;
-  // Format: "06/11/2026 13:00"
   const [datePart, timePart] = localDateStr.split(' ');
+  if (!datePart || !timePart) return null;
   const [month, day, year] = datePart.split('/');
-  const [hour, minute] = timePart.split(':');
-  // API local_date is in US Central time (CDT = UTC-5)
-  const utcDate = new Date(Date.UTC(
-    parseInt(year), parseInt(month) - 1, parseInt(day),
-    parseInt(hour) + 5, parseInt(minute)
+  const [hour, minute]     = timePart.split(':');
+  return new Date(Date.UTC(
+    parseInt(year),
+    parseInt(month) - 1,
+    parseInt(day),
+    parseInt(hour) + 5,   // CDT → UTC
+    parseInt(minute)
   ));
-  return utcDate;
 }
 
-/**
- * Format time as 24h HH:MM in Vietnam timezone
- */
+/** Format UTC date → "HH:MM" in Vietnam timezone */
 export function formatTime(date) {
   if (!date) return '--:--';
   return date.toLocaleTimeString('vi-VN', {
@@ -36,119 +35,87 @@ export function formatTime(date) {
   });
 }
 
-/**
- * Format date as "Thứ Sáu, 12/06/2026"
- */
+/** Format UTC date → "Thứ Sáu, 12/06/2026" */
 export function formatDate(date) {
   if (!date) return '';
-  const d = new Date(date.toLocaleString('en-US', { timeZone: TZ }));
-  const dayName = DAYS_VI[d.getDay()];
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
+  const local = new Date(date.toLocaleString('en-US', { timeZone: TZ }));
+  const dayName = DAYS_VI[local.getDay()];
+  const dd   = String(local.getDate()).padStart(2, '0');
+  const mm   = String(local.getMonth() + 1).padStart(2, '0');
+  const yyyy = local.getFullYear();
   return `${dayName}, ${dd}/${mm}/${yyyy}`;
 }
 
-/**
- * Format date as short "12/06" for grouping labels
- */
+/** Format UTC date → "Thứ Sáu 12/06" (short label) */
 export function formatDateShort(date) {
   if (!date) return '';
-  const d = new Date(date.toLocaleString('en-US', { timeZone: TZ }));
-  const dayName = DAYS_VI[d.getDay()];
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const local = new Date(date.toLocaleString('en-US', { timeZone: TZ }));
+  const dayName = DAYS_VI[local.getDay()];
+  const dd = String(local.getDate()).padStart(2, '0');
+  const mm = String(local.getMonth() + 1).padStart(2, '0');
   return `${dayName} ${dd}/${mm}`;
 }
 
-/**
- * Get date key YYYY-MM-DD for grouping in Vietnam TZ
- */
+/** Date key in Vietnam TZ for grouping: "YYYY-MM-DD" */
 export function getDateKey(date) {
   if (!date) return '';
-  return date.toLocaleDateString('en-CA', { timeZone: TZ }); // YYYY-MM-DD
+  return date.toLocaleDateString('en-CA', { timeZone: TZ });
 }
 
-/**
- * Check if date is today in Vietnam TZ
- */
+/** Is this date today in Vietnam TZ? */
 export function isToday(date) {
   if (!date) return false;
-  const now = new Date();
-  return getDateKey(date) === getDateKey(now);
+  return getDateKey(date) === getDateKey(new Date());
 }
 
-// Match duration in ms: 90 min + 15 min stoppage buffer = 105 min
-const MATCH_DURATION_MS   = 105 * 60 * 1000;
-// Extra time + penalties buffer = 45 more min = 150 total
-const MATCH_EXTRA_MS      = 150 * 60 * 1000;
-
 /**
- * Map API status to Vietnamese display.
- * Adds client-side time inference when the API is stale:
- *   - kickoff ≤ now < kickoff+105min  → "Đang đá (dự kiến)"
- *   - kickoff+105min ≤ now            → "Kết thúc (dự kiến)"
- * This covers the case where worldcup26.ir hasn't updated yet.
+ * Get status info from game object.
+ * Priority:
+ *   1. ESPN-patched data (_espnPatched = true) → fully trust time_elapsed / finished
+ *   2. worldcup26.ir raw data (less real-time)
+ *
+ * Returns { text, cls }
  */
-export function getStatusInfo(game, matchDate) {
-  const elapsed  = (game.time_elapsed || '').toLowerCase();
-  const finished = (game.finished     || '').toUpperCase();
+export function getStatusInfo(game) {
+  const elapsed  = (game.time_elapsed || '').toLowerCase().trim();
+  const finished = (game.finished     || '').toUpperCase().trim();
 
-  // API says finished / live / paused → trust it
   if (finished === 'TRUE' || elapsed === 'finished') {
     return { text: 'Kết thúc', cls: 'status-finished' };
   }
   if (elapsed === 'halftime') {
     return { text: 'Nghỉ giữa hiệp', cls: 'status-paused' };
   }
-  if (elapsed && elapsed !== 'notstarted' && elapsed !== 'finished' && elapsed !== 'postponed') {
-    return { text: `⬤ ${elapsed}'`, cls: 'status-live' };
+  if (elapsed === 'postponed' || elapsed === 'cancelled') {
+    return { text: elapsed === 'postponed' ? 'Hoãn' : 'Hủy', cls: 'status-postponed' };
   }
-  if (elapsed === 'postponed') {
-    return { text: 'Hoãn', cls: 'status-postponed' };
-  }
-
-  // API says "notstarted" but we can check with real clock
-  const now = Date.now();
-  const kickoff = (matchDate instanceof Date ? matchDate : parseMatchDate(game.local_date))?.getTime();
-
-  if (kickoff) {
-    if (now >= kickoff && now < kickoff + MATCH_DURATION_MS) {
-      // Estimated live – API is lagging
-      const mins = Math.floor((now - kickoff) / 60000);
-      return { text: `⬤ ~${mins}'`, cls: 'status-live', estimated: true };
-    }
-    if (now >= kickoff + MATCH_DURATION_MS) {
-      // Almost certainly over – API is lagging
-      return { text: 'Kết thúc*', cls: 'status-finished', estimated: true };
-    }
+  // Live: any non-empty value that is NOT "notstarted" or "finished"
+  if (elapsed && elapsed !== 'notstarted' && elapsed !== 'finished') {
+    // ESPN sends display clock like "45'+2'", "67'", "90'+4'" etc.
+    return { text: `⬤ ${elapsed}`, cls: 'status-live' };
   }
 
   return { text: 'Sắp diễn ra', cls: 'status-scheduled' };
 }
 
 export function isLive(game) {
-  const s = getStatusInfo(game, parseMatchDate(game.local_date));
-  return s.cls === 'status-live';
+  return getStatusInfo(game).cls === 'status-live';
 }
 
 export function isFinished(game) {
-  const s = getStatusInfo(game, parseMatchDate(game.local_date));
-  return s.cls === 'status-finished';
+  return getStatusInfo(game).cls === 'status-finished';
 }
 
-/**
- * Get round label in Vietnamese
- */
+/** Round labels in Vietnamese */
 export function getRoundLabel(type, group) {
   const map = {
-    'group': `Bảng ${group}`,
-    'r32': 'Vòng 32',
-    'r16': 'Vòng 16',
-    'qf':  'Tứ kết',
-    'sf':  'Bán kết',
-    'third': 'Tranh hạng 3',
-    'final': 'Chung kết',
+    group: `Bảng ${group}`,
+    r32:   'Vòng 32',
+    r16:   'Vòng 16',
+    qf:    'Tứ kết',
+    sf:    'Bán kết',
+    third: 'Tranh hạng 3',
+    final: 'Chung kết',
   };
-  return map[type] || type || `Bảng ${group}`;
+  return map[type] || (group ? `Bảng ${group}` : type);
 }
