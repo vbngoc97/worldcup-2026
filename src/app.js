@@ -69,7 +69,7 @@ function showToast(msg) {
 // ─── Sheet helpers ────────────────────────────────────────────────────────────
 function openSheet(game, stadiumMap) {
   const date = parseMatchDate(game.local_date);
-  const si = getStatusInfo(game);
+  const si = getStatusInfo(game, date);
   const hScore = game.home_score ?? '-';
   const aScore = game.away_score ?? '-';
   const stadium = stadiumMap?.[String(game.stadium_id)];
@@ -177,7 +177,7 @@ function closeSheet() {
 // ─── Match Card renderer ──────────────────────────────────────────────────────
 function renderMatchCard(game, stadiumMap) {
   const date = parseMatchDate(game.local_date);
-  const si = getStatusInfo(game);
+  const si = getStatusInfo(game, date);
   const fin = isFinished(game);
   const live = isLive(game);
   const hScore = game.home_score ?? '-';
@@ -231,6 +231,7 @@ function renderMatchCard(game, stadiumMap) {
     ${hScorers.length > 0 ? `<div class="scorers-line">⚽ ${hScorers.join(', ')}</div>` : ''}
     ${aScorers.length > 0 ? `<div class="scorers-line">⚽ ${aScorers.join(', ')}</div>` : ''}
 
+    ${si.estimated ? `<div class="card-footer" style="margin-top:6px;color:var(--c-text-3);font-size:10px">* Trạng thái ước tính – API đang cập nhật chậm</div>` : ''}
     ${stadiumText ? `
     <div class="card-divider"></div>
     <div class="card-footer">

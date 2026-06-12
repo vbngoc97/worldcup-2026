@@ -78,36 +78,62 @@ export function isToday(date) {
   return getDateKey(date) === getDateKey(now);
 }
 
-/**
- * Map API status to Vietnamese display
- */
-export function getStatusInfo(game) {
-  const elapsed = (game.time_elapsed || '').toLowerCase();
-  const finished = (game.finished || '').toUpperCase();
+// Match duration in ms: 90 min + 15 min stoppage buffer = 105 min
+const MATCH_DURATION_MS   = 105 * 60 * 1000;
+// Extra time + penalties buffer = 45 more min = 150 total
+const MATCH_EXTRA_MS      = 150 * 60 * 1000;
 
+/**
+ * Map API status to Vietnamese display.
+ * Adds client-side time inference when the API is stale:
+ *   - kickoff ≤ now < kickoff+105min  → "Đang đá (dự kiến)"
+ *   - kickoff+105min ≤ now            → "Kết thúc (dự kiến)"
+ * This covers the case where worldcup26.ir hasn't updated yet.
+ */
+export function getStatusInfo(game, matchDate) {
+  const elapsed  = (game.time_elapsed || '').toLowerCase();
+  const finished = (game.finished     || '').toUpperCase();
+
+  // API says finished / live / paused → trust it
   if (finished === 'TRUE' || elapsed === 'finished') {
     return { text: 'Kết thúc', cls: 'status-finished' };
   }
   if (elapsed === 'halftime') {
     return { text: 'Nghỉ giữa hiệp', cls: 'status-paused' };
   }
-  if (elapsed && elapsed !== 'notstarted' && elapsed !== 'finished') {
-    // e.g. "45", "90+2" – match is live
+  if (elapsed && elapsed !== 'notstarted' && elapsed !== 'finished' && elapsed !== 'postponed') {
     return { text: `⬤ ${elapsed}'`, cls: 'status-live' };
   }
   if (elapsed === 'postponed') {
     return { text: 'Hoãn', cls: 'status-postponed' };
   }
+
+  // API says "notstarted" but we can check with real clock
+  const now = Date.now();
+  const kickoff = (matchDate instanceof Date ? matchDate : parseMatchDate(game.local_date))?.getTime();
+
+  if (kickoff) {
+    if (now >= kickoff && now < kickoff + MATCH_DURATION_MS) {
+      // Estimated live – API is lagging
+      const mins = Math.floor((now - kickoff) / 60000);
+      return { text: `⬤ ~${mins}'`, cls: 'status-live', estimated: true };
+    }
+    if (now >= kickoff + MATCH_DURATION_MS) {
+      // Almost certainly over – API is lagging
+      return { text: 'Kết thúc*', cls: 'status-finished', estimated: true };
+    }
+  }
+
   return { text: 'Sắp diễn ra', cls: 'status-scheduled' };
 }
 
 export function isLive(game) {
-  const s = getStatusInfo(game);
+  const s = getStatusInfo(game, parseMatchDate(game.local_date));
   return s.cls === 'status-live';
 }
 
 export function isFinished(game) {
-  const s = getStatusInfo(game);
+  const s = getStatusInfo(game, parseMatchDate(game.local_date));
   return s.cls === 'status-finished';
 }
 
