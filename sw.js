@@ -1,51 +1,47 @@
-const CACHE_NAME = 'wc2026-cache-v1';
-const ASSETS_TO_CACHE = [
+const CACHE = 'wc2026-v3';
+const PRECACHE = [
   './',
   './index.html',
+  './manifest.json',
   './src/styles.css',
-  './src/main.js',
+  './src/app.js',
   './src/services/dataService.js',
   './src/utils/time.js',
-  './src/utils/standings.js',
-  './src/data/worldcup-2026.json'
 ];
 
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        return cache.addAll(ASSETS_TO_CACHE);
-      })
-  );
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)));
   self.skipWaiting();
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.filter(name => name !== CACHE_NAME)
-          .map(name => caches.delete(name))
-      );
-    })
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    )
   );
+  self.clients.claim();
 });
 
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        return response || fetch(event.request).then(fetchRes => {
-          return caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request.url, fetchRes.clone());
-            return fetchRes;
-          });
-        });
-      }).catch(() => {
-        // Fallback for offline if not in cache
-        return new Response('Offline content not available');
-      })
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+
+  // Network-first for API calls
+  if (url.hostname === 'worldcup26.ir' || url.hostname === 'flagcdn.com') {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Cache-first for static assets
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request))
   );
 });
