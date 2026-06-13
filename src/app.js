@@ -8,6 +8,11 @@ import {
   parseMatchDate, formatTime, formatDate, formatDateShort,
   getDateKey, isToday, getStatusInfo, isLive, isFinished, getRoundLabel
 } from './utils/time.js';
+import { addToCalendar as calAddToCalendar } from './utils/calendar.js';
+
+// Currently open game/stadium for calendar button
+let _sheetGame    = null;
+let _sheetStadium = null;
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const state = {
@@ -64,7 +69,9 @@ function parseScorers(raw) {
 
 // ─── Bottom Sheet ─────────────────────────────────────────────────────────────
 function openSheet(game, stadiumMap) {
-  const date = parseMatchDate(game.local_date);
+  _sheetGame    = game;
+  _sheetStadium = stadiumMap?.[String(game.stadium_id)] || null;
+  const date = parseMatchDate(game);
   const si   = getStatusInfo(game);
   const fin  = isFinished(game);
   const live = isLive(game);
@@ -148,16 +155,33 @@ function openSheet(game, stadiumMap) {
 
     ${!fin && date ? `
     <div style="margin-top:14px">
-      <button class="retry-btn" style="width:100%;background:var(--c-surface-2);color:var(--c-text-2);border:1px solid var(--c-border);font-size:13px"
-        onclick="addToCalendar()">📅 Thêm vào lịch</button>
+      <button id="cal-btn" class="retry-btn"
+        style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+               background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(56,189,248,0.1));
+               color:var(--c-text);border:1px solid var(--c-gold);font-size:14px;border-radius:14px;padding:13px">
+        📅 <span>Thêm vào Lịch</span>
+      </button>
     </div>` : ''}
   `;
+
+  // Wire up calendar button after innerHTML is set
+  document.getElementById('cal-btn')?.addEventListener('click', handleCalendarBtn);
 
   sheetOverlay.classList.add('active');
   bottomSheet.classList.add('active');
 }
 
-window.addToCalendar = () => showToast('Tính năng đang phát triển 🚧');
+function handleCalendarBtn() {
+  if (!_sheetGame) return;
+  const btn = document.getElementById('cal-btn');
+  const ok  = calAddToCalendar(_sheetGame, _sheetStadium);
+  if (ok) {
+    if (btn) { btn.innerHTML = '✅ <span>Đã tạo file lịch!</span>'; btn.disabled = true; }
+    showToast('📅 Mở file .ics để thêm vào Lịch iPhone');
+  } else {
+    showToast('Không thể tạo file lịch 😕');
+  }
+}
 
 function closeSheet() {
   sheetOverlay.classList.remove('active');
@@ -166,7 +190,7 @@ function closeSheet() {
 
 // ─── Match Card ───────────────────────────────────────────────────────────────
 function makeMatchCard(game, stadiumMap) {
-  const date   = parseMatchDate(game.local_date);
+  const date   = parseMatchDate(game);
   const si     = getStatusInfo(game);
   const fin    = isFinished(game);
   const live   = isLive(game);
@@ -262,13 +286,13 @@ function renderToday() {
   const todayKey = getDateKey(now);
 
   const todayGames = games.filter(g => {
-    const d = parseMatchDate(g.local_date);
+    const d = parseMatchDate(g);
     return d && getDateKey(d) === todayKey;
   }).sort((a, b) => {
     // live first → upcoming → finished
     const rank = g => isLive(g) ? 0 : isFinished(g) ? 2 : 1;
     if (rank(a) !== rank(b)) return rank(a) - rank(b);
-    return parseMatchDate(a.local_date) - parseMatchDate(b.local_date);
+    return parseMatchDate(a) - parseMatchDate(b);
   });
 
   const liveCount = todayGames.filter(isLive).length;
@@ -291,11 +315,11 @@ function renderToday() {
       <div class="hero-sub">Giờ Việt Nam (GMT+7)</div>`;
   } else {
     const next = games.filter(g => !isFinished(g))
-      .sort((a,b) => parseMatchDate(a.local_date) - parseMatchDate(b.local_date))[0];
+      .sort((a,b) => parseMatchDate(a) - parseMatchDate(b))[0];
     hero.innerHTML = `
       <div class="hero-date">${formatDate(now)}</div>
       <div class="hero-message">Không có trận hôm nay</div>
-      <div class="hero-sub">${next ? 'Tiếp theo: ' + formatDate(parseMatchDate(next.local_date)) : 'Giải đấu kết thúc'}</div>`;
+      <div class="hero-sub">${next ? 'Tiếp theo: ' + formatDate(parseMatchDate(next)) : 'Giải đấu kết thúc'}</div>`;
   }
   page.appendChild(hero);
 
@@ -317,7 +341,7 @@ function renderToday() {
     todayGames.forEach(g => page.appendChild(makeMatchCard(g, sm)));
   } else {
     const next = games.filter(g => !isFinished(g))
-      .sort((a,b) => parseMatchDate(a.local_date) - parseMatchDate(b.local_date))[0];
+      .sort((a,b) => parseMatchDate(a) - parseMatchDate(b))[0];
     if (next) page.appendChild(makeMatchCard(next, sm));
   }
 
@@ -382,7 +406,7 @@ function renderScheduleList(games, sm, container) {
       if (!haystack.includes(q)) return false;
     }
     return true;
-  }).sort((a,b) => parseMatchDate(a.local_date) - parseMatchDate(b.local_date));
+  }).sort((a,b) => parseMatchDate(a) - parseMatchDate(b));
 
   container.innerHTML = '';
   if (!list.length) {
@@ -397,7 +421,7 @@ function renderScheduleList(games, sm, container) {
   // Group by VN date
   const groups = {};
   list.forEach(g => {
-    const d = parseMatchDate(g.local_date);
+    const d = parseMatchDate(g);
     const k = d ? getDateKey(d) : 'other';
     if (!groups[k]) groups[k] = { d, games: [] };
     groups[k].games.push(g);
@@ -419,7 +443,7 @@ function renderResults() {
 
   const done = games
     .filter(isFinished)
-    .sort((a,b) => parseMatchDate(b.local_date) - parseMatchDate(a.local_date));
+    .sort((a,b) => parseMatchDate(b) - parseMatchDate(a));
 
   const page = document.createElement('div');
   page.className = 'page';
@@ -662,3 +686,4 @@ function init() {
 }
 
 init();
+
